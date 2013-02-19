@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- <link rel="stylesheet" href="./css/bootstrap.min.css"> -->
+  <!-- <link rel="stylesheet" href="./css/keys.css">          -->
+  <!-- <link rel="stylesheet" href="./css/main.css">          -->
+
+  <link rel="stylesheet" href="styles.css">   
+  <script type="text/javascript" src="js/ros_bundle.js"></script>
+  <script type="text/javascript" src="js/turtle.js"></script>
+  <script type="text/javascript" src="js/util.js"></script>
+  <script src="http://localhost:8081/socket.io/socket.io.js"></script>
+
+  <script type="text/javascript">
+    
+    var turtle;
+    var ros;
+    var socket;
+    var ready = false;
+    var name = 'turtle1';
+    var type = 'interface'
+
+    function log(msg) {
+      var l = document.getElementById('log');
+      l.innerHTML += concatObject(msg) + '<br/>';
+    }
+
+    function callOnConnection(n,message) {
+      if(message) {
+        var messageJson = JSON.stringify(message);
+        socket.emit('publish',{name:n, data: messageJson});
+      }
+    };
+
+    function init() {
+      connect();
+    };
+
+    function connect() {
+      socket = io.connect('http://localhost:8081');
+      socket.on('info',function(msg) {
+        log(msg);
+      });
+
+      var droplist = document.getElementById('droplist');
+      socket.on('concertlist_update',function(msg) {
+        removeAllOptions(droplist);
+        console.log('All Options are removed');
+        list = msg.list;
+        for(var l in list) {
+          opt = createOption(list[l]);
+          droplist.add(opt,null);
+        }
+        log(list);
+
+      });
+
+      socket.emit('information',{type:type,name:name});
+    };
+
+    function removeAllOptions(obj) {
+      if (obj == null) return;
+      if (obj.options == null) return;
+      obj.options.length = 0;  // That's it!
+    };
+
+    function createOption(name) {
+      var opt = document.createElement('option');
+      opt.text = name;
+      opt.value = name;
+
+      return opt;
+    }
+
+
+    function createTurtle(n) {
+      turtle = new Turtle({
+          ros : ros,
+          name: n,
+      });
+    };
+
+    function connectConcert() {
+      var droplist = document.getElementById('droplist');
+      if(droplist.selectedIndex >= 0) {
+        var selected = droplist.options[droplist.selectedIndex].value;
+        log(selected + ' is selected');
+        ros = null;
+        ros = new ROS(undefined,function(message) {
+            callOnConnection(selected,message);
+            });
+        createTurtle('turtle1');
+        subscribePose('turtle1');
+        document.onkeydown = keyDown;
+      }
+    };
+
+    function subscribePose(n) {
+      var topic = new ros.Topic({
+        name        : '/' + n + '/pose',
+        messageType : 'turtlesim/Pose',
+        throttle_rate : 0.5
+      });
+
+      topic.subscribe(processPose);
+    };
+
+    function processPose(msg) {
+      console.log(msg);
+    };
+
+    function keyDown(event) {
+      var keyCode = event.keyCode || event.which;
+
+      var arrow  = { left: 37, up: 38, right: 39, down: 40 };
+      if (keyCode === arrow.up) {
+        turtle.moveForward();
+        return false;
+      }
+      else if (keyCode === arrow.down) {
+        turtle.moveBackward();
+        return false;
+      }
+      else if (keyCode === arrow.left) {
+        turtle.moveLeft();
+        return false;
+      }
+      else if (keyCode === arrow.right) {
+        turtle.moveRight();
+        return false;
+      }
+    };
+
+</script>
+</head>
+
+<body class="body" onload="init()">
+  <div class="header">
+    <h1> Turtlesim</h1>
+  </div>
+  <div class="middle">
+    <div class="leftmiddle" id="left">
+      <select id="droplist" style="width:200px; height:20pt;" >  </select>
+      <button id="selectBtn" style="width:100pt;height:20pt;" onclick="connectConcert()">Connect</button>
+    </div>
+    <div class="rightmiddle">
+      <h3> Log </h3>
+      <div id="log">
+        <br/>
+      </div> 
+    </div>
+  </div>
+  <div class="footer" id="footer">
+
+
+
+
+  </div>
+</body>
+</html>
